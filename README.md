@@ -3,20 +3,20 @@
 Frozen **Qwen3.5-2B-Base** text features → **254,564,363-parameter transformer head** → **11 raw category scores**.
 Supports 17 languages: en, de, fr, es, it, sv, fi, pl, cs, lv, zh, ja, ko, ru, uk, be, kk. This is the selected epoch-5 checkpoint.
 
-[Gradio app source](https://github.com/ifmain/Moderation-03/blob/main/app.py) · [Full evaluation report](https://huggingface.co/spaces/ifmain/Moderation-03-report) · [Model weights](https://huggingface.co/ifmain/Moderation-03) · [Source](https://github.com/ifmain/Moderation-03)
+[Interactive demo](https://huggingface.co/spaces/ifmain/moderation-3) · [Full evaluation report](https://github.com/ifmain/Moderation-03/tree/main/evaluation) · [Model weights](https://huggingface.co/ifmain/Moderation-03) · [Source](https://github.com/ifmain/Moderation-03)
 
 ## Outputs and controls
 
 The raw sigmoid scores are **not calibrated probabilities**. They remain unchanged when selecting a preset.
 Categories: `harassment`, `harassment_threatening`, `hate`, `hate_threatening`, `self_harm`, `self_harm_instructions`, `self_harm_intent`, `sexual`, `sexual_minors`, `violence`, `violence_graphic`.
 
-Choose raw scores, one of four presets (`light`, `medium`, `high`, `corporate`), or custom per-category thresholds. A `null` threshold disables a category. Enabled categories trigger when `score >= threshold`; any trigger blocks the text. High and corporate presets also apply a finite multilingual profanity lexicon. Custom thresholds can change each category independently and optionally enable that lexicon. Raw mode makes no allow/block decision.
+Raw scores are always displayed. Select a preset (`light`, `medium`, `high`, `corporate`) to populate editable per-category thresholds; every edit immediately affects filtering. There is no mode selector. A `null` threshold disables a category. Enabled categories trigger when `score >= threshold`; any trigger blocks the text. High and corporate presets also apply a finite multilingual profanity lexicon. Custom thresholds can change each category independently and optionally enable that lexicon. Changing presets or thresholds reuses session-local scores without running the model again. Editing the text clears the previous result. The Python API still supports raw-only output with `preset=None`.
 
 Corporate is the strictest **content-threshold** preset. The project owner also intends to restrict non-work discussions in workplace deployments, but this release has **no workplace-topic relevance detector**. A benign statement about equal rights is not a hate ground-truth label merely because an organization chooses to restrict that topic. The published evaluation retains its original content-policy labels; it does not measure a separate work-topic policy.
 
 ## Run
 
-Clone the GitHub repository, install `requirements.txt`, and run `python app.py`. Head weights and the pinned Qwen backbone download automatically. CUDA is used when available; CPU is supported but slower. The first request loads the model. Local execution needs no hosting subscription. Hugging Face rejected creation of a new hosted Gradio Space for this account because its current cpu-basic hosting policy requires PRO; the runnable app is published here for local or separately authorized hosting.
+Clone the GitHub repository, install `requirements.txt`, and run `python app.py`. Head weights and the pinned Qwen backbone download automatically. CUDA is used when available; CPU is supported but slower. The model loads before the application accepts requests. A plain ASGI server runs without hot reload or Node SSR. Local execution needs no hosting subscription. The hosted demo is available at https://huggingface.co/spaces/ifmain/moderation-3.
 
 ```python
 from moderation03 import Moderation03
@@ -36,7 +36,7 @@ print(result["raw_scores"], result["policy"])
 
 Backbone: `Qwen/Qwen3.5-2B-Base`, pinned revision `b1485b2fa6dfa1287294f269f5fb618e03d52d7c`.
 Head: input size 2048, width 1024, 20 transformer encoder blocks, 16 attention heads, feed-forward size 4096, masked mean pooling, 11 classifiers. Token limit: **512**, no chat template. Longer texts are truncated and the API returns `truncated=true`.
-Published `model.safetensors` is the **FP32 head**, SHA256 `4218fb73825ff2fbbdd897a4346dd67141b15fc63d1811413929dddb88d408d3`; it is not the full Qwen model. BF16 inference/autocast follows the evaluated pipeline. The rounded BF16 head export is intentionally not substituted for the evaluated weights.
+Published `model.safetensors` is the **FP32 head**, SHA256 `4218fb73825ff2fbbdd897a4346dd67141b15fc63d1811413929dddb88d408d3`; it is not the full Qwen model. CUDA uses the evaluated BF16 inference/autocast pipeline. CPU uses FP32 to avoid software-emulated BF16; small numerical differences are possible. Weights and frozen thresholds are unchanged. The rounded BF16 head export is intentionally not substituted for the evaluated weights.
 
 Training: 100,000 examples, 70% clean / 30% character-level augmentation, 17 languages; 2,000 separate validation examples. Selected checkpoint: epoch 5, validation BCE 0.0967052458. Training data derives from [ifmain/text-moderation-02-multilingual](https://huggingface.co/datasets/ifmain/text-moderation-02-multilingual). Character substitutions and inserted separators do not establish robustness to semantic attacks. Source language assignment included uncertain groups.
 

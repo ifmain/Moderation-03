@@ -29,6 +29,8 @@ def apply_policy(scores, thresholds, *, block_profanity=False, text='', language
 class Moderation03:
     def __init__(self, model_id=MODEL_ID, device=None, backbone_path=None):
         self.device=device or ('cuda' if torch.cuda.is_available() else 'cpu')
+        # CPU BF16 is often emulated on basic hosted machines; use native FP32 there.
+        self.dtype=torch.bfloat16 if self.device.startswith('cuda') else torch.float32
         torch.set_num_threads(int(os.getenv('TORCH_NUM_THREADS','4')))
         torch.backends.mha.set_fastpath_enabled(False)
         path=Path(model_id)
@@ -42,7 +44,7 @@ class Moderation03:
         self.tokenizer=AutoTokenizer.from_pretrained(backbone,**kwargs)
         self.tokenizer.padding_side='right'
         if self.tokenizer.pad_token_id is None:self.tokenizer.pad_token=self.tokenizer.eos_token
-        full=Qwen3_5ForConditionalGeneration.from_pretrained(backbone,dtype=torch.bfloat16,
+        full=Qwen3_5ForConditionalGeneration.from_pretrained(backbone,dtype=self.dtype,
                 attn_implementation='sdpa',**kwargs)
         self.backbone=full.model.language_model
         del full;gc.collect()
@@ -60,13 +62,14 @@ class Moderation03:
         encoded={'input_ids':torch.tensor([ids],device=self.device),
                  'attention_mask':torch.ones((1,len(ids)),dtype=torch.long,device=self.device)}
         hidden=self.backbone(**encoded,use_cache=False,return_dict=True).last_hidden_state
-        with torch.autocast(self.device,dtype=torch.bfloat16):
+        with torch.autocast(self.device.split(':')[0],dtype=torch.bfloat16,enabled=self.device.startswith('cuda')):
             logits=self.head(hidden.float(),encoded['attention_mask'])
         if not bool(torch.isfinite(logits).all()):raise ValueError('Non-finite scores')
         values=logits.float().sigmoid()[0].cpu().tolist()
         return {'raw_scores':dict(zip(CATEGORIES,values)), 'input_tokens':total,
                 'processed_tokens':len(ids),'truncated':total>self.config['max_length'],
-                'checkpoint_epoch':5,'score_type':'uncalibrated sigmoid score'}
+                'checkpoint_epoch':5,'score_type':'uncalibrated sigmoid score',
+                'device':self.device,'compute_dtype':str(self.dtype)}
 
     def predict(self,text,language='en',preset=None,thresholds=None,block_profanity=False):
         if language not in LANGS:raise ValueError('Unsupported language')
