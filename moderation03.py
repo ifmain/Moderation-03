@@ -8,23 +8,19 @@ from huggingface_hub import snapshot_download
 from safetensors.torch import load_file
 from transformers import AutoTokenizer, Qwen3_5ForConditionalGeneration
 from moderation_model import ModerationHead
-from moderation_policy import LANGS, PROFILES, profanity
 from categories import CATEGORIES
 
 MODEL_ID='ifmain/Moderation-03'
+PROFILES=['light','medium','high','corporate']
 
-def apply_policy(scores, thresholds, *, block_profanity=False, text='', language='en'):
+def apply_policy(scores, thresholds):
     if set(scores)!=set(CATEGORIES) or set(thresholds)!=set(CATEGORIES):
         raise ValueError('Exactly 11 named categories are required')
-    if language not in LANGS:raise ValueError('Unsupported language')
     for value in thresholds.values():
         if value is not None and not 0<=value<=1:raise ValueError('Thresholds must be in [0,1] or null (disabled)')
     tags={c:thresholds[c] is not None and scores[c]>=thresholds[c] for c in CATEGORIES}
     reasons=[c for c,flagged in tags.items() if flagged]
-    lexical=block_profanity and profanity(text,language)
-    if lexical:reasons.append('profanity_rule')
-    return {'block':bool(reasons),'tags':tags,'reasons':reasons,'thresholds':thresholds,
-            'profanity_rule_enabled':block_profanity,'profanity_rule_triggered':bool(lexical)}
+    return {'block':bool(reasons),'tags':tags,'reasons':reasons,'thresholds':thresholds}
 
 class Moderation03:
     def __init__(self, model_id=MODEL_ID, device=None, backbone_path=None):
@@ -71,15 +67,12 @@ class Moderation03:
                 'checkpoint_epoch':5,'score_type':'uncalibrated sigmoid score',
                 'device':self.device,'compute_dtype':str(self.dtype)}
 
-    def predict(self,text,language='en',preset=None,thresholds=None,block_profanity=False):
-        if language not in LANGS:raise ValueError('Unsupported language')
+    def predict(self,text,preset=None,thresholds=None):
         if preset is not None and preset not in PROFILES:raise ValueError('Unknown preset')
         if preset is not None and thresholds is not None:raise ValueError('Choose preset or custom thresholds')
         result=self.scores(text)
         if preset is not None:
             thresholds=self.calibration['thresholds'][preset]
-            block_profanity=preset in ['high','corporate']
         result['preset']=preset
-        result['policy']=None if thresholds is None else apply_policy(result['raw_scores'],thresholds,
-                block_profanity=block_profanity,text=text,language=language)
+        result['policy']=None if thresholds is None else apply_policy(result['raw_scores'],thresholds)
         return result

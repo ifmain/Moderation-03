@@ -10,7 +10,7 @@ Supports 17 languages: en, de, fr, es, it, sv, fi, pl, cs, lv, zh, ja, ko, ru, u
 The raw sigmoid scores are **not calibrated probabilities**. They remain unchanged when selecting a preset.
 Categories: `harassment`, `harassment_threatening`, `hate`, `hate_threatening`, `self_harm`, `self_harm_instructions`, `self_harm_intent`, `sexual`, `sexual_minors`, `violence`, `violence_graphic`.
 
-Raw scores are always displayed. Select a preset (`light`, `medium`, `high`, `corporate`) to populate editable per-category thresholds; every edit immediately affects filtering. There is no mode selector. A `null` threshold disables a category. Enabled categories trigger when `score >= threshold`; any trigger blocks the text. High and corporate presets also apply a finite multilingual profanity lexicon. Custom thresholds can change each category independently and optionally enable that lexicon. Changing presets or thresholds reuses session-local scores without running the model again. Editing the text clears the previous result. The Python API still supports raw-only output with `preset=None`.
+Raw scores are always displayed. Select a preset (`light`, `medium`, `high`, `corporate`) to populate editable per-category thresholds; every edit immediately affects filtering. There is no mode selector. A `null` threshold disables a category. Enabled categories trigger when `score >= threshold`; any trigger blocks the text. Custom thresholds can change each category independently without any additional word-list rules. Changing presets or thresholds reuses session-local scores without running the model again. Editing the text clears the previous result. The Python API still supports raw-only output with `preset=None`.
 
 Corporate is the strictest **content-threshold** preset. The project owner also intends to restrict non-work discussions in workplace deployments, but this release has **no workplace-topic relevance detector**. A benign statement about equal rights is not a hate ground-truth label merely because an organization chooses to restrict that topic. The published evaluation retains its original content-policy labels; it does not measure a separate work-topic policy.
 
@@ -22,11 +22,11 @@ Clone the GitHub repository, install `requirements.txt`, and run `python app.py`
 from moderation03 import Moderation03
 
 model = Moderation03("ifmain/Moderation-03")
-raw = model.predict("Hello, thanks for your help.", language="en")
-medium = model.predict("Hello, thanks for your help.", language="en", preset="medium")
+raw = model.predict("Hello, thanks for your help.")
+medium = model.predict("Hello, thanks for your help.", preset="medium")
 custom = dict.fromkeys(model.config["categories"], None)
 custom["harassment"] = 0.4
-result = model.predict("Hello, thanks for your help.", language="en", thresholds=custom)
+result = model.predict("Hello, thanks for your help.", thresholds=custom)
 print(result["raw_scores"], result["policy"])
 ```
 
@@ -50,8 +50,8 @@ Internal held-out content-policy results:
 |---|---:|---:|---:|---:|---:|---:|
 | Light | 109 | 35 | 244 | 24 | 75.7% | 82.0% |
 | Medium | 189 | 51 | 146 | 26 | 78.8% | 87.9% |
-| High | 245 | 24 | 121 | 22 | 91.1% | 91.8% |
-| Corporate | 252 | 22 | 115 | 23 | 92.0% | 91.6% |
+| High | 238 | 24 | 121 | 29 | 90.8% | 89.1% |
+| Corporate | 245 | 22 | 115 | 30 | 91.8% | 89.1% |
 
 External evaluation: [mmathys/openai-moderation-api-evaluation](https://huggingface.co/datasets/mmathys/openai-moderation-api-evaluation), revision `84e5cf3bcd6acb3dfc70b6760451645872218a3e`, **1,680 English examples**. Unknown labels are excluded, not treated as negatives. No thresholds were fitted on this dataset. Exact normalized overlaps with used groups, including all their translations: zero; arbitrary paraphrase/pretraining contamination is not excluded. 76 external texts exceed 512 tokens and were truncated.
 
@@ -73,3 +73,7 @@ The detailed report contains category/language metrics and the frozen thresholds
 ## License
 
 Apache-2.0 for released code and head weights. The backbone is downloaded separately under its own Apache-2.0 license. External evaluation provenance and definitions: [OpenAI moderation-api-release](https://github.com/openai/moderation-api-release).
+
+## Neural-only interface
+
+The interface accepts text without a language selector. Decisions use only the 11 neural scores and editable thresholds. No profanity word list or other lexical blocker is used. The internal table above has been recomputed without the removed rule; `evaluation/neural_only_evaluation.json` records this change. Historical evaluation files retain the original protocol. Model weights and threshold values are unchanged. Application and inference source code live in GitHub and the Gradio Space; the model repository contains artifacts and documentation only.

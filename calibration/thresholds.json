@@ -73,6 +73,8 @@
   "probabilities_calibrated": false,
   "checkpoint_sha256": "4218fb73825ff2fbbdd897a4346dd67141b15fc63d1811413929dddb88d408d3",
   "fit_ids_sha256": "852388954817cf5ef3047eae79e8a1480cc60a1311673e439a02fbb9511cca23",
-  "policy": "Reference four-profile policy plus finite profanity rule. Research intent checks scored separately.",
-  "limitations": "Weak teacher-derived and synthetic labels. No new detector heads were trained."
+  "policy": "Neural scores and per-category thresholds only. No word lists or language selection.",
+  "limitations": "Weak teacher-derived and synthetic labels. No new detector heads were trained.",
+  "historical_fit_policy": "Reference four-profile policy plus finite profanity rule. Research intent checks scored separately.",
+  "postprocessing": "neural_thresholds_only"
 }

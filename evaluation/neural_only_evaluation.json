@@ -1,0 +1,66 @@
+{
+  "policy": "neural_thresholds_only",
+  "weights_unchanged": true,
+  "threshold_values_unchanged": true,
+  "internal_audit": {
+    "light": {
+      "n": 412,
+      "TP": 109,
+      "FP": 35,
+      "TN": 244,
+      "FN": 24
+    },
+    "medium": {
+      "n": 412,
+      "TP": 189,
+      "FP": 51,
+      "TN": 146,
+      "FN": 26
+    },
+    "high": {
+      "n": 412,
+      "TP": 238,
+      "FP": 24,
+      "TN": 121,
+      "FN": 29
+    },
+    "corporate": {
+      "n": 412,
+      "TP": 245,
+      "FP": 22,
+      "TN": 115,
+      "FN": 30
+    }
+  },
+  "challenge": {
+    "light": {
+      "n": 265,
+      "TP": 68,
+      "FP": 43,
+      "TN": 78,
+      "FN": 76
+    },
+    "medium": {
+      "n": 265,
+      "TP": 127,
+      "FP": 33,
+      "TN": 52,
+      "FN": 53
+    },
+    "high": {
+      "n": 265,
+      "TP": 133,
+      "FP": 36,
+      "TN": 49,
+      "FN": 47
+    },
+    "corporate": {
+      "n": 265,
+      "TP": 138,
+      "FP": 41,
+      "TN": 44,
+      "FN": 42
+    }
+  },
+  "note": "Reuses saved scores. Historical evaluation.json includes the removed lexical rule in internal policy metrics. External projected category metrics are unaffected."
+}

@@ -1,6 +1,5 @@
 import unittest
-from moderation03 import apply_policy
-from moderation_policy import decisions,PROFILES
+from moderation03 import apply_policy,PROFILES
 from categories import CATEGORIES
 import app
 
@@ -23,31 +22,34 @@ class ReleaseTests(unittest.TestCase):
     def test_presets_match_evaluated_policy(self):
         for value in [0,.01,.1,.5,1]:
             scores=dict.fromkeys(CATEGORIES,value)
-            expected=decisions(scores,True,app.CALIBRATION['thresholds'])
             for p in PROFILES:
-                actual=apply_policy(scores,app.CALIBRATION['thresholds'][p],block_profanity=p in ['high','corporate'],text='fuck',language='en')
-                self.assertEqual(actual['block'],expected[p]['block'])
-                self.assertEqual(actual['reasons'],expected[p]['reasons'])
+                thresholds=app.CALIBRATION['thresholds'][p]
+                expected=[c for c in CATEGORIES if thresholds[c] is not None and scores[c]>=thresholds[c]]
+                actual=apply_policy(scores,thresholds)
+                self.assertEqual(actual['block'],bool(expected))
+                self.assertEqual(actual['reasons'],expected)
     def test_live_thresholds_preserve_raw_scores_without_inference(self):
-        app.MODEL=FakeModel();controls=app.settings('medium')[1:]
-        outputs=app.analyze('test','en','medium',False,*controls)
+        app.MODEL=FakeModel();controls=app.settings('medium')
+        outputs=app.analyze('test','medium',*controls)
         preset=outputs[3];cached=outputs[4]
         custom_controls=[v for c in CATEGORIES for v in [False,.99]]
-        custom=app.render(cached,'en','medium',False,*custom_controls)[3]
+        custom=app.render(cached,'medium',*custom_controls)[3]
         self.assertEqual(preset['raw_scores'],custom['raw_scores'])
         self.assertTrue(preset['policy']['block'])
         self.assertFalse(custom['policy']['block'])
         self.assertTrue(custom['customized'])
         custom_controls[0]=True;custom_controls[1]=.4
-        self.assertTrue(app.render(cached,'en','medium',False,*custom_controls)[3]['policy']['block'])
+        self.assertTrue(app.render(cached,'medium',*custom_controls)[3]['policy']['block'])
         custom_controls[1]=.5
-        self.assertFalse(app.render(cached,'en','medium',False,*custom_controls)[3]['policy']['block'])
+        self.assertFalse(app.render(cached,'medium',*custom_controls)[3]['policy']['block'])
         self.assertEqual(app.MODEL.calls,1)
         self.assertIsNone(app.clear_result()[-1])
     def test_ui_builds(self):
         demo=app.build_app()
         self.assertTrue(demo.config['components'])
         self.assertFalse(any(c['type']=='radio' for c in demo.config['components']))
+        self.assertEqual(sum(c['type']=='dropdown' for c in demo.config['components']),1)
+        self.assertEqual(sum(c['type']=='checkbox' for c in demo.config['components']),11)
         for c in demo.config['components']:
             if c['type'] in ['checkbox','slider']:self.assertTrue(c['props']['interactive'])
             label=c['props'].get('label','')

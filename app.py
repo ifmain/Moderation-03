@@ -7,8 +7,7 @@ import time
 os.environ['GRADIO_ANALYTICS_ENABLED']='False'
 os.environ['GRADIO_SSR_MODE']='False'
 import gradio as gr
-from moderation03 import Moderation03,apply_policy,MODEL_ID
-from moderation_policy import LANGS,PROFILES
+from moderation03 import Moderation03,apply_policy,MODEL_ID,PROFILES
 from categories import CATEGORIES
 
 ROOT=Path(__file__).resolve().parent
@@ -22,7 +21,7 @@ def settings(preset):
     for c in CATEGORIES:
         t=CALIBRATION['thresholds'][preset][c]
         values.extend([t is not None,round(t,6) if t is not None else .5])
-    return [preset in ['high','corporate'],*values]
+    return values
 
 def load_model():
     global MODEL
@@ -31,18 +30,17 @@ def load_model():
                            backbone_path=os.getenv('BACKBONE_PATH') or None)
     return MODEL
 
-def render(cached,language,preset,lexical,*controls):
+def render(cached,preset,*controls):
     if not cached:return 'Enter text and click Analyze.',[],[],{}
     thresholds={c:float(controls[2*i+1]) if controls[2*i] else None for i,c in enumerate(CATEGORIES)}
-    raw=cached['prediction']['raw_scores'];text=cached['text']
-    policy=apply_policy(raw,thresholds,block_profanity=bool(lexical),text=text,language=language)
+    raw=cached['prediction']['raw_scores']
+    policy=apply_policy(raw,thresholds)
     reference=settings(preset)
-    customized=bool(lexical)!=reference[0] or any(bool(controls[2*i])!=reference[1+2*i] or
-        (controls[2*i] and abs(float(controls[2*i+1])-reference[2+2*i])>1e-8) for i in range(len(CATEGORIES)))
-    result={**cached['prediction'],'base_preset':preset,'customized':customized,'language':language,
+    customized=any(bool(controls[2*i])!=reference[2*i] or
+        (controls[2*i] and abs(float(controls[2*i+1])-reference[2*i+1])>1e-8) for i in range(len(CATEGORIES)))
+    result={**cached['prediction'],'base_preset':preset,'customized':customized,
             'policy':policy,'inference_seconds':cached['seconds'],
-            'all_presets':{p:apply_policy(raw,CALIBRATION['thresholds'][p],
-                block_profanity=p in ['high','corporate'],text=text,language=language) for p in PROFILES}}
+            'all_presets':{p:apply_policy(raw,CALIBRATION['thresholds'][p]) for p in PROFILES}}
     summary=('## BLOCK' if policy['block'] else '## ALLOW')
     summary+=f'\n\n{LABELS[preset]}'+(' · modified thresholds' if customized else ' preset')
     summary+='\n\nTriggered: '+(', '.join(policy['reasons']) or 'none')
@@ -53,13 +51,13 @@ def render(cached,language,preset,lexical,*controls):
     comparison=[[LABELS[p],result['all_presets'][p]['block'],', '.join(result['all_presets'][p]['reasons']) or 'None'] for p in PROFILES]
     return summary,table,comparison,result
 
-def analyze(text,language,preset,lexical,*controls):
+def analyze(text,preset,*controls):
     if not text or not text.strip():raise gr.Error('Enter non-empty text.')
     if len(text)>50000:raise gr.Error('Maximum input length: 50,000 characters.')
     with LOCK:
         model=load_model();start=time.perf_counter();prediction=model.scores(text)
-        cached={'text':text,'prediction':prediction,'seconds':time.perf_counter()-start}
-    return (*render(cached,language,preset,lexical,*controls),cached)
+        cached={'prediction':prediction,'seconds':time.perf_counter()-start}
+    return (*render(cached,preset,*controls),cached)
 
 def clear_result():
     return 'Text changed. Click Analyze to update the scores.',[],[],{},None
@@ -71,7 +69,6 @@ def build_app():
         with gr.Row():
             with gr.Column():
                 text=gr.Textbox(label='Text',lines=7,max_lines=14,interactive=True)
-                language=gr.Dropdown(LANGS,value='en',label='Text language',info='Used by the optional profanity rule.',interactive=True)
                 preset=gr.Dropdown([(LABELS[p],p) for p in PROFILES],value='medium',label='Preset',
                     info='Loads thresholds below. You can edit them directly.',interactive=True)
                 button=gr.Button('Analyze',variant='primary')
@@ -80,8 +77,7 @@ def build_app():
                 table=gr.Dataframe(headers=['Category','Raw score','Threshold','Tag'],datatype=['str','number','number','str'],interactive=False)
         with gr.Accordion('Category thresholds',open=True):
             gr.Markdown('Every enabled category can block the text. Disable a category with its checkbox. Changes immediately update the decision for the last analyzed text.')
-            lexical=gr.Checkbox(value=False,label='Block profanity using the word list',interactive=True)
-            controls=[];defaults=settings('medium')[1:]
+            controls=[];defaults=settings('medium')
             for i,c in enumerate(CATEGORIES):
                 with gr.Row():
                     enabled=gr.Checkbox(value=defaults[2*i],label=c,interactive=True)
@@ -90,15 +86,15 @@ def build_app():
         comparison=gr.Dataframe(headers=['Preset','Blocked','Reasons'],datatype=['str','bool','str'],interactive=False,label='Unmodified presets for comparison')
         details=gr.JSON(label='Raw scores and decisions')
         outputs=[summary,table,comparison,details]
-        refresh_inputs=[cache,language,preset,lexical,*controls]
-        preset.change(settings,inputs=preset,outputs=[lexical,*controls],queue=False).then(
+        refresh_inputs=[cache,preset,*controls]
+        preset.change(settings,inputs=preset,outputs=controls,queue=False).then(
             render,inputs=refresh_inputs,outputs=outputs,queue=False,api_name=False)
-        for control in [language,lexical,*controls]:
+        for control in controls:
             control.input(render,inputs=refresh_inputs,outputs=outputs,queue=False,api_name=False)
         text.input(clear_result,outputs=[*outputs,cache],queue=False,api_name=False)
-        button.click(analyze,inputs=[text,language,preset,lexical,*controls],outputs=[*outputs,cache],
+        button.click(analyze,inputs=[text,preset,*controls],outputs=[*outputs,cache],
                      concurrency_limit=1,api_name='moderate')
-        gr.Markdown('Raw scores are not calibrated probabilities. Presets classify content; they do not determine whether a topic belongs in a workplace. Text stays in session memory for interactive threshold changes and is not saved to a dataset.')
+        gr.Markdown('Decisions use only the 11 neural-network scores and your thresholds. Raw scores are not calibrated probabilities. Scores stay in session memory for interactive threshold changes; submitted text is not saved to a dataset.')
         gr.Markdown('[Model](https://huggingface.co/ifmain/Moderation-03) · [Evaluation](https://github.com/ifmain/Moderation-03/tree/main/evaluation) · [Source](https://github.com/ifmain/Moderation-03)')
     return demo.queue(max_size=8)
 
