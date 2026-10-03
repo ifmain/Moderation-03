@@ -1,0 +1,78 @@
+{
+  "status": "fitted_internal_only",
+  "method": "group-weighted balanced error threshold search; nested profiles",
+  "fit_rows": 828,
+  "fit_groups": 638,
+  "thresholds": {
+    "light": {
+      "harassment": null,
+      "harassment_threatening": 0.12,
+      "hate": 0.26,
+      "hate_threatening": 0.01,
+      "self_harm": null,
+      "self_harm_instructions": 0.23,
+      "self_harm_intent": null,
+      "sexual": null,
+      "sexual_minors": 0.02,
+      "violence": null,
+      "violence_graphic": 0.02
+    },
+    "medium": {
+      "harassment": 0.45,
+      "harassment_threatening": 0.03,
+      "hate": 0.060000000000000005,
+      "hate_threatening": 0.01,
+      "self_harm": 0.12,
+      "self_harm_instructions": 0.01,
+      "self_harm_intent": 0.02,
+      "sexual": 0.59,
+      "sexual_minors": 0.01,
+      "violence": 0.09999999999999999,
+      "violence_graphic": 0.02
+    },
+    "high": {
+      "harassment": 0.24000000000000002,
+      "harassment_threatening": 0.03,
+      "hate": 0.05,
+      "hate_threatening": 0.01,
+      "self_harm": 0.03,
+      "self_harm_instructions": 0.01,
+      "self_harm_intent": 0.02,
+      "sexual": 0.34,
+      "sexual_minors": 0.01,
+      "violence": 0.09999999999999999,
+      "violence_graphic": 0.02
+    },
+    "corporate": {
+      "harassment": 0.24000000000000002,
+      "harassment_threatening": 0.01,
+      "hate": 0.05,
+      "hate_threatening": 0.01,
+      "self_harm": 0.02,
+      "self_harm_instructions": 0.01,
+      "self_harm_intent": 0.01,
+      "sexual": 0.29000000000000004,
+      "sexual_minors": 0.01,
+      "violence": 0.09,
+      "violence_graphic": 0.02
+    }
+  },
+  "standard_category_thresholds": {
+    "harassment": 0.25,
+    "harassment_threatening": 0.02,
+    "hate": 0.03,
+    "hate_threatening": 0.01,
+    "self_harm": 0.01,
+    "self_harm_instructions": 0.01,
+    "self_harm_intent": 0.01,
+    "sexual": 0.11,
+    "sexual_minors": 0.01,
+    "violence": 0.09,
+    "violence_graphic": 0.02
+  },
+  "probabilities_calibrated": false,
+  "checkpoint_sha256": "4218fb73825ff2fbbdd897a4346dd67141b15fc63d1811413929dddb88d408d3",
+  "fit_ids_sha256": "852388954817cf5ef3047eae79e8a1480cc60a1311673e439a02fbb9511cca23",
+  "policy": "Reference four-profile policy plus finite profanity rule. Research intent checks scored separately.",
+  "limitations": "Weak teacher-derived and synthetic labels. No new detector heads were trained."
+}
